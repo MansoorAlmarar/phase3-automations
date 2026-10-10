@@ -17,5 +17,11 @@
   "bugs": {
     "url": "https://github.com/MansoorAlmarar/phase3-automations/issues"
   },
-  "homepage": "https://github.com/MansoorAlmarar/phase3-automations#readme"
+  "homepage": "https://github.com/MansoorAlmarar/phase3-automations#readme",
+  "dependencies": {
+    "@trigger.dev/sdk": "^4.7.3"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "^4.7.3"
+  }
 }
