@@ -1,0 +1,21 @@
+{
+  "name": "phase3-automations",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MansoorAlmarar/phase3-automations.git"
+  },
+  "keywords": [],
+  "author": "Mansoor Almarar",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MansoorAlmarar/phase3-automations/issues"
+  },
+  "homepage": "https://github.com/MansoorAlmarar/phase3-automations#readme"
+}
