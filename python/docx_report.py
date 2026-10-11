@@ -104,6 +104,32 @@ def heading(doc, text):
     return p
 
 
+def fix_table(t, widths):
+    """Fixed layout and explicit column widths, so the table looks the same in every viewer."""
+    total = sum(widths)
+    if total > 6.85:  # A4 page, 0.7 in margins
+        widths = [w * 6.85 / total for w in widths]
+    t.autofit = False
+    t.alignment = WD_TABLE_ALIGNMENT.LEFT
+    tblPr = t._tbl.tblPr
+    for old in tblPr.findall(qn("w:tblLayout")):
+        tblPr.remove(old)
+    lay = OxmlElement("w:tblLayout")
+    lay.set(qn("w:type"), "fixed")
+    tblPr.append(lay)
+    for old in tblPr.findall(qn("w:tblW")):
+        tblPr.remove(old)
+    tw = OxmlElement("w:tblW")
+    tw.set(qn("w:w"), str(int(sum(widths) * 1440)))
+    tw.set(qn("w:type"), "dxa")
+    tblPr.append(tw)
+    for i, w in enumerate(widths):
+        t.columns[i].width = Inches(w)
+    for row in t.rows:
+        for i, w in enumerate(widths):
+            row.cells[i].width = Inches(w)
+
+
 def kv_table(doc, rows, widths=(1.7, 5.3)):
     t = doc.add_table(rows=0, cols=2)
     t.style = "Table Grid"
@@ -113,6 +139,7 @@ def kv_table(doc, rows, widths=(1.7, 5.3)):
         shade(cells[0], GREY)
         cells[0].paragraphs[0].add_run(k).bold = True
         cells[1].paragraphs[0].add_run(str(v))
+    fix_table(t, widths)
     doc.add_paragraph().paragraph_format.space_after = Pt(2)
     return t
 
@@ -128,10 +155,7 @@ def grid_table(doc, header, rows, widths=None):
         cells = t.add_row().cells
         for i, v in enumerate(r):
             cells[i].paragraphs[0].add_run(str(v))
-    if widths:
-        for row in t.rows:
-            for i, w in enumerate(widths):
-                row.cells[i].width = Inches(w)
+    fix_table(t, widths or [7.0 / len(header)] * len(header))
     doc.add_paragraph().paragraph_format.space_after = Pt(2)
     return t
 
@@ -143,6 +167,7 @@ def banner(doc, text, fill, bold=True):
     shade(c, fill)
     r = c.paragraphs[0].add_run(text)
     r.bold = bold
+    fix_table(t, [7.0])
     doc.add_paragraph().paragraph_format.space_after = Pt(2)
 
 
@@ -305,11 +330,19 @@ def build_docx(snap, plan, halal, notes, charts, path, note_text="", note_warnin
 
     doc = Document()
     sec = doc.sections[0]
+    sec.page_width, sec.page_height = Inches(8.27), Inches(11.69)  # A4
     sec.left_margin = sec.right_margin = Inches(0.7)
     sec.top_margin = sec.bottom_margin = Inches(0.6)
     st = doc.styles["Normal"]
     st.font.name = "Calibri"
     st.font.size = Pt(10.5)
+    rpr = st.element.get_or_add_rPr()
+    rf = rpr.find(qn("w:rFonts"))
+    if rf is None:
+        rf = OxmlElement("w:rFonts")
+        rpr.append(rf)
+    for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+        rf.set(qn(attr), "Calibri")
 
     # 1. Header
     para(doc, f"{snap['ticker']}  |  {p.get('companyName') or ''}", bold=True, size=20, color=INK, after=0)
@@ -489,7 +522,7 @@ def build_docx(snap, plan, halal, notes, charts, path, note_text="", note_warnin
     for key in ("sma_short", "sma_long", "rsi"):
         pth = (charts or {}).get(key)
         if pth and os.path.exists(pth):
-            doc.add_picture(pth, width=Inches(6.9))
+            doc.add_picture(pth, width=Inches(6.8))
             pic = doc.paragraphs[-1]
             pic.alignment = WD_ALIGN_PARAGRAPH.CENTER
             pic.paragraph_format.space_before = Pt(14)

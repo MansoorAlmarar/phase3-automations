@@ -221,40 +221,50 @@ HTML = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport"
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <style>
 *{box-sizing:border-box}
-body{margin:0;padding:16px 14px 60px;font:14px -apple-system,Segoe UI,Roboto,sans-serif;background:#f4f5f7;color:#131722}
-h1{font-size:18px;margin:0 0 4px} .hint{color:#6b7280;font-size:12.5px;line-height:1.5;margin:0 0 16px}
-.card{background:#fff;border:1px solid #e0e3eb;border-radius:10px;padding:12px;margin:0 0 28px}
-.card h2{font-size:14px;margin:0 0 10px}
-.controls{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:0 0 10px}
+body{margin:0;padding:10px 0 48px;font:14px -apple-system,Segoe UI,Roboto,sans-serif;background:#f4f5f7;color:#131722}
+header{padding:0 12px 8px} h1{font-size:18px;margin:0 0 4px}
+.hint{color:#6b7280;font-size:12.5px;line-height:1.5;margin:0}
+.card{background:#fff;border-top:1px solid #e0e3eb;border-bottom:1px solid #e0e3eb;padding:10px 6px;margin:0 0 26px}
+.card:fullscreen{overflow:auto;padding:10px 8px}
+.card h2{font-size:14px;margin:0 6px 8px}
+.controls{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 6px 8px}
 .controls label{display:flex;align-items:center;gap:5px;font-weight:600;cursor:pointer}
 button{font:inherit;font-weight:600;padding:5px 11px;border:1px solid #c9ccd6;background:#fff;border-radius:6px;cursor:pointer}
 button:active{background:#eef0f5}
 .chart{width:100%;touch-action:pan-y}
-#a{height:380px} #b{height:260px} #r{height:150px;margin-top:8px}
+#a{height:72vh;min-height:420px} #b{height:46vh;min-height:300px} #r{height:22vh;min-height:150px;margin-top:6px}
+.card:fullscreen #a{height:calc(100vh - 130px)} .card:fullscreen #b{height:calc(100vh - 290px)} .card:fullscreen #r{height:150px}
 </style></head><body>
-<h1 id="t"></h1>
-<p class="hint">The page scrolls normally. Zoom with the + / - buttons, Ctrl + mouse wheel, or pinch on a phone. Drag sideways to move through time.
-Research only, not advice.</p>
+<header><h1 id="t"></h1>
+<p class="hint">TradingView-style: mouse wheel zooms, drag moves through time, drag the price or time axis to stretch it, double-click an axis to reset.
+On a phone: pinch to zoom, one finger drags sideways, swipe up or down scrolls the page. Each chart moves on its own. Research only, not advice.</p></header>
 
-<div class="card"><h2>Price with moving averages and levels</h2>
+<div class="card" id="cardA"><h2>Price with moving averages and levels</h2>
 <div class="controls"><span id="boxes" style="display:contents"></span>
 <label><input type="checkbox" id="lv" checked>Levels</label></div>
-<div class="controls"><button data-z="in">+</button><button data-z="out">-</button><button id="ytd">YTD</button><button id="m3">3M</button><button id="all">All</button></div>
+<div class="controls"><button data-c="A" data-z="in">+</button><button data-c="A" data-z="out">-</button>
+<button data-c="A" data-r="ytd">YTD</button><button data-c="A" data-r="m3">3M</button><button data-c="A" data-r="all">All</button>
+<button class="wheel">Wheel: zoom</button><button class="fs" data-card="cardA">Full screen</button></div>
 <div id="a" class="chart"></div></div>
 
-<div class="card"><h2>Candles with RSI 14</h2>
+<div class="card" id="cardB"><h2>Candles with RSI 14</h2>
+<div class="controls"><button data-c="B" data-z="in">+</button><button data-c="B" data-z="out">-</button>
+<button data-c="B" data-r="ytd">YTD</button><button data-c="B" data-r="m3">3M</button><button data-c="B" data-r="all">All</button>
+<button class="wheel">Wheel: zoom</button><button class="fs" data-card="cardB">Full screen</button></div>
 <div id="b" class="chart"></div><div id="r" class="chart"></div></div>
 
 <script>
 const D = __DATA__;
 document.getElementById('t').textContent = D.ticker + ' Daily';
 const LC = LightweightCharts;
-const base = {layout:{background:{color:'#ffffff'},textColor:'#131722'},grid:{vertLines:{color:'#e0e3eb'},horzLines:{color:'#e0e3eb'}},
+const opts = wheelZoom => ({autoSize:true,
+  layout:{background:{color:'#ffffff'},textColor:'#131722'},grid:{vertLines:{color:'#e0e3eb'},horzLines:{color:'#e0e3eb'}},
   rightPriceScale:{borderColor:'#e0e3eb',minimumWidth:70},timeScale:{borderColor:'#e0e3eb',rightOffset:4},crosshair:{mode:0},
   handleScroll:{mouseWheel:false,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
-  handleScale:{mouseWheel:false,pinch:true,axisPressedMouseMove:true,axisDoubleClickReset:true}};
-const mk = id => { const e = document.getElementById(id); return LC.createChart(e, Object.assign({width:e.clientWidth,height:e.clientHeight}, base)); };
+  handleScale:{mouseWheel:wheelZoom,pinch:true,axisPressedMouseMove:true,axisDoubleClickReset:true}});
+const mk = id => LC.createChart(document.getElementById(id), opts(true));
 const A = mk('a'), B = mk('b'), R = mk('r');
+const charts = {A, B};
 const candleOpts = {upColor:'#089981',downColor:'#F23645',borderUpColor:'#089981',borderDownColor:'#F23645',wickUpColor:'#089981',wickDownColor:'#F23645'};
 const cA = A.addCandlestickSeries(candleOpts); cA.setData(D.candles);
 const cB = B.addCandlestickSeries(candleOpts); cB.setData(D.candles);
@@ -282,20 +292,30 @@ rs.setData(D.rsi);
 rs.createPriceLine({price:70,color:'#787B86',lineWidth:1,lineStyle:2,axisLabelVisible:false});
 rs.createPriceLine({price:30,color:'#787B86',lineWidth:1,lineStyle:2,axisLabelVisible:false});
 
-// keep all three time axes together
-const charts = [A, B, R]; let busy = false;
-charts.forEach(c => c.timeScale().subscribeVisibleLogicalRangeChange(r => { if (busy || !r) return; busy = true;
-  charts.forEach(o => { if (o !== c) o.timeScale().setVisibleLogicalRange(r); }); busy = false; }));
+// Chart A moves alone. Chart B and its RSI strip move together (they are one chart).
+function pair(from, to) { from.timeScale().subscribeVisibleLogicalRangeChange(r => {
+  if (!r) return; const o = to.timeScale().getVisibleLogicalRange();
+  if (o && Math.abs(o.from - r.from) < 0.01 && Math.abs(o.to - r.to) < 0.01) return;  // already equal: stop the echo
+  to.timeScale().setVisibleLogicalRange(r); }); }
+pair(B, R); pair(R, B);
 
-function setRange(from){ A.timeScale().setVisibleRange({from:from,to:D.end}); }
-function zoom(f){ const ts = A.timeScale(), r = ts.getVisibleLogicalRange(); if (!r) return;
-  const mid = (r.from + r.to) / 2, half = (r.to - r.from) / 2 * f; ts.setVisibleLogicalRange({from:mid-half,to:mid+half}); }
-document.querySelectorAll('[data-z]').forEach(b => b.onclick = () => zoom(b.dataset.z === 'in' ? 0.6 : 1.6));
-document.getElementById('ytd').onclick = () => setRange(D.start);
-document.getElementById('m3').onclick = () => { const d = new Date(D.end); d.setDate(d.getDate()-92); setRange(d.toISOString().slice(0,10)); };
-document.getElementById('all').onclick = () => A.timeScale().fitContent();
-// Ctrl + wheel zooms; plain wheel scrolls the page
-['a','b','r'].forEach(id => document.getElementById(id).addEventListener('wheel', e => { if (e.ctrlKey) { e.preventDefault(); zoom(e.deltaY < 0 ? 0.85 : 1.18); } }, {passive:false}));
-setRange(D.start);
-addEventListener('resize', () => [['a',A],['b',B],['r',R]].forEach(([id,c]) => { const e = document.getElementById(id); c.resize(e.clientWidth, e.clientHeight); }));
+function setRange(c, from){ c.timeScale().setVisibleRange({from:from,to:D.end}); }
+function zoom(c, f){ const ts = c.timeScale(), r = ts.getVisibleLogicalRange(); if (!r) return;
+  const right = r.to, span = (r.to - r.from) * f; ts.setVisibleLogicalRange({from:right-span,to:right}); }
+document.querySelectorAll('[data-z]').forEach(b => b.onclick = () => zoom(charts[b.dataset.c], b.dataset.z === 'in' ? 0.6 : 1.6));
+document.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { const c = charts[b.dataset.c], k = b.dataset.r;
+  if (k === 'ytd') setRange(c, D.start);
+  else if (k === 'm3') { const d = new Date(D.end); d.setDate(d.getDate()-92); setRange(c, d.toISOString().slice(0,10)); }
+  else c.timeScale().fitContent(); });
+// Wheel: zoom (like TradingView) or scroll the page, per card
+document.querySelectorAll('.wheel').forEach(b => b.onclick = () => {
+  const zoomOn = b.textContent.includes('scroll'); b.textContent = zoomOn ? 'Wheel: zoom' : 'Wheel: scroll page';
+  const cs = b.closest('.card').id === 'cardA' ? [A] : [B, R];
+  cs.forEach(c => c.applyOptions({handleScale:{mouseWheel:zoomOn}})); });
+// Full screen per card
+document.querySelectorAll('.fs').forEach(b => b.onclick = () => { const el = document.getElementById(b.dataset.card);
+  if (document.fullscreenElement) document.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen(); });
+// start at year to date, after the first layout (the charts size themselves)
+function start() { setRange(A, D.start); setRange(B, D.start); }
+requestAnimationFrame(() => setTimeout(start, 150)); setTimeout(start, 700);
 </script></body></html>"""
