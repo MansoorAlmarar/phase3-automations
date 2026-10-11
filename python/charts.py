@@ -149,12 +149,12 @@ def _figure(snap, plan, smas, title, path, with_rsi=False):
         plt.setp(ax.get_xticklabels(), visible=False)
         rsi = rsi_series(full_close)[view.index]
         axr.set_facecolor(BG)
-        # TradingView default RSI: purple 2px line, bands at 70/30 (dashed grey), 30-70 fill at 10% purple,
+        # TradingView default RSI: purple 1px line, bands at 70/30 (dashed grey), 30-70 fill at 10% purple,
         # no middle line, autoscaled to the data (never tighter than the bands).
         axr.axhspan(30, 70, color=RSI_COLOR, alpha=0.10, linewidth=0)
         axr.axhline(70, color="#787B86", linestyle=(0, (4, 4)), linewidth=0.9)
         axr.axhline(30, color="#787B86", linestyle=(0, (4, 4)), linewidth=0.9)
-        axr.plot(range(n), rsi.values, color=RSI_COLOR, linewidth=1.6, solid_joinstyle="round")
+        axr.plot(range(n), rsi.values, color=RSI_COLOR, linewidth=0.8, solid_joinstyle="round")
         rlo, rhi = min(30.0, float(rsi.min())), max(70.0, float(rsi.max()))
         rpad = (rhi - rlo) * 0.06
         axr.set_ylim(rlo - rpad, rhi + rpad)
@@ -327,13 +327,13 @@ function drawLevels() { if (D.floor) { level(D.floor[0],'#787B86','Floor bottom'
 drawLevels();
 document.getElementById('lv').addEventListener('change', e => { lines.forEach(l => cA.removePriceLine(l)); lines.length = 0; if (e.target.checked) drawLevels(); });
 
-// TradingView default RSI: 30-70 band fill (10% purple), dashed grey 70/30 lines, 2px purple line, scale never tighter than the bands.
+// TradingView default RSI: 30-70 band fill (10% purple), dashed grey 70/30 lines, 1px purple line, scale never tighter than the bands.
 const band = R.addBaselineSeries({baseValue:{type:'price',price:30},topLineColor:'rgba(0,0,0,0)',bottomLineColor:'rgba(0,0,0,0)',
   topFillColor1:'rgba(126,87,194,0.10)',topFillColor2:'rgba(126,87,194,0.10)',bottomFillColor1:'rgba(0,0,0,0)',bottomFillColor2:'rgba(0,0,0,0)',
   lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
   autoscaleInfoProvider:() => null});
 band.setData(D.rsi.map(p => ({time:p.time,value:70})));
-const rs = R.addLineSeries({color:'#7E57C2',lineWidth:2,priceLineVisible:false,lastValueVisible:true,
+const rs = R.addLineSeries({color:'#7E57C2',lineWidth:1,priceLineVisible:false,lastValueVisible:true,
   autoscaleInfoProvider:orig => { const r = orig(); if (!r) return r;
     const lo = Math.min(30, r.priceRange.minValue), hi = Math.max(70, r.priceRange.maxValue), pad = (hi - lo) * 0.06;
     return {priceRange:{minValue:lo - pad, maxValue:hi + pad}, margins:r.margins}; }});
