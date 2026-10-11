@@ -182,7 +182,8 @@ def make_charts(snap, plan, outdir):
             out[name] = None
             errors.append(f"chart {name}: {type(e).__name__}: {str(e)[:100]}")
     try:
-        out["interactive"] = make_interactive(snap, plan, os.path.join(outdir, f"{t}-chart.html"))
+        out["interactive"] = make_interactive(snap, plan, os.path.join(outdir, f"{t}-chart.html"),
+                                              [out.get("sma_short"), out.get("sma_long"), out.get("rsi")])
     except Exception as e:  # noqa: BLE001
         out["interactive"] = None
         errors.append(f"interactive chart: {type(e).__name__}: {str(e)[:100]}")
@@ -190,7 +191,23 @@ def make_charts(snap, plan, outdir):
 
 
 # ---------- interactive HTML ----------
-def make_interactive(snap, plan, path):
+def _lib():
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "lightweight-charts.standalone.production.js"),
+              encoding="utf-8") as f:
+        return f.read()
+
+
+def _img_tags(pngs):
+    import base64
+    tags = []
+    for p in pngs:
+        if p and os.path.exists(p):
+            with open(p, "rb") as f:
+                tags.append('<img alt="chart" src="data:image/png;base64,' + base64.b64encode(f.read()).decode() + '">')
+    return "".join(tags)
+
+
+def make_interactive(snap, plan, path, pngs=()):
     df = frame(snap)
     close = df["close"]
     start = start_of_view(df.index[-1])
@@ -211,14 +228,16 @@ def make_interactive(snap, plan, path):
         "entry": plan.get("entry") if plan.get("position") == "holding" else None,
         "stop": plan.get("stop"), "target": plan.get("target"),
     }
+    imgs = _img_tags(pngs)
+    html = HTML.replace("__IMGS__", imgs).replace("__DATA__", json.dumps(data)).replace("__LIB__", _lib())
     with open(path, "w", encoding="utf-8") as f:
-        f.write(HTML.replace("__DATA__", json.dumps(data)))
+        f.write(html)
     return path
 
 
 HTML = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Chart</title>
-<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script>__LIB__</script>
 <style>
 *{box-sizing:border-box}
 body{margin:0;padding:10px 0 48px;font:14px -apple-system,Segoe UI,Roboto,sans-serif;background:#f4f5f7;color:#131722}
@@ -232,9 +251,12 @@ header{padding:0 12px 8px} h1{font-size:18px;margin:0 0 4px}
 button{font:inherit;font-weight:600;padding:5px 11px;border:1px solid #c9ccd6;background:#fff;border-radius:6px;cursor:pointer}
 button:active{background:#eef0f5}
 .chart{width:100%;touch-action:pan-y}
+.fallback{padding:12px;background:#fff} .fallback img{width:100%;height:auto;margin:0 0 14px;display:block}
 #a{height:72vh;min-height:420px} #b{height:46vh;min-height:300px} #r{height:22vh;min-height:150px;margin-top:6px}
 .card:fullscreen #a{height:calc(100vh - 130px)} .card:fullscreen #b{height:calc(100vh - 290px)} .card:fullscreen #r{height:150px}
 </style></head><body>
+<div id="fb" class="fallback"><p><b>Static charts.</b> If the interactive version below does not appear, this viewer cannot run scripts. Open this file in Chrome or Safari for the interactive charts.</p>__IMGS__</div>
+<div id="app" style="display:none">
 <header><h1 id="t"></h1>
 <p class="hint">TradingView-style: mouse wheel zooms, drag moves through time, drag the price or time axis to stretch it, double-click an axis to reset.
 On a phone: pinch to zoom, one finger drags sideways, swipe up or down scrolls the page. Each chart moves on its own. Research only, not advice.</p></header>
@@ -253,8 +275,13 @@ On a phone: pinch to zoom, one finger drags sideways, swipe up or down scrolls t
 <button class="wheel">Wheel: zoom</button><button class="fs" data-card="cardB">Full screen</button></div>
 <div id="b" class="chart"></div><div id="r" class="chart"></div></div>
 
+</div>
 <script>
 const D = __DATA__;
+function showFallback(){ document.getElementById('fb').style.display = 'block'; document.getElementById('app').style.display = 'none'; }
+if (typeof LightweightCharts === 'undefined') { showFallback(); throw new Error('chart library missing'); }
+document.getElementById('fb').style.display = 'none'; document.getElementById('app').style.display = 'block';
+window.addEventListener('error', () => { if (!window.__ok) showFallback(); });
 document.getElementById('t').textContent = D.ticker + ' Daily';
 const LC = LightweightCharts;
 const opts = wheelZoom => ({autoSize:true,
@@ -317,5 +344,7 @@ document.querySelectorAll('.fs').forEach(b => b.onclick = () => { const el = doc
   if (document.fullscreenElement) document.exitFullscreen(); else if (el.requestFullscreen) el.requestFullscreen(); });
 // start at year to date, after the first layout (the charts size themselves)
 function start() { setRange(A, D.start); setRange(B, D.start); }
-requestAnimationFrame(() => setTimeout(start, 150)); setTimeout(start, 700);
+requestAnimationFrame(() => setTimeout(start, 150)); setTimeout(start, 700); window.__ok = true;
+// a chart that drew nothing (zero size) means the viewer cannot handle it
+setTimeout(() => { const c = document.querySelector('#a canvas'); if (!c || c.width < 50) showFallback(); }, 1500);
 </script></body></html>"""

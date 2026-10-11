@@ -123,7 +123,8 @@ def main():
                                   "seconds": (notes or {}).get("_seconds"), "web_items": (notes or {}).get("_web_items")})
         path = os.path.join(a.out, f"{ticker}-{date.today()}.docx")
         docx_report.build_docx(snap, plan, halal, notes, chart_paths, path, note_text=note, note_warning=pos["warning"])
-        result.update({"ok": True, "docx": path, "html": chart_paths.get("interactive"), "halal": halal, "bytes": os.path.getsize(path), "caption": caption(snap, plan, halal),
+        result.update({"ok": True, "docx": path, "html": chart_paths.get("interactive"), "halal": halal,
+                       "charts": {k: v for k, v in chart_paths.items() if k in ("sma_short", "sma_long", "rsi") and v}, "bytes": os.path.getsize(path), "caption": caption(snap, plan, halal),
                        "plan": {k: plan.get(k) for k in ("position", "entry", "stop", "loss_pct", "reward_risk")}})
     except Exception as e:  # noqa: BLE001 - the contract is: never raise
         result["error"] = f"{type(e).__name__}: {str(e)[:200]}"

@@ -130,6 +130,57 @@ def fix_table(t, widths):
             row.cells[i].width = Inches(w)
 
 
+def _set_run_font(run, size_default):
+    """Direct font on the run. Many phone viewers ignore styles but honour run formatting."""
+    run.font.name = "Calibri"
+    rpr = run._element.get_or_add_rPr()
+    rf = rpr.find(qn("w:rFonts"))
+    if rf is None:
+        rf = OxmlElement("w:rFonts")
+        rpr.insert(0, rf)
+    for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+        rf.set(qn(attr), "Calibri")
+    if run.font.size is None:
+        run.font.size = Pt(size_default)
+
+
+def harden(doc):
+    """Direct formatting for tables and text, so every viewer (Word, Google Docs, Telegram and phone previews) shows the
+    same borders, padding and font. Table STYLES are not honoured by some viewers; direct borders and margins are."""
+    for t in doc.tables:
+        tblPr = t._tbl.tblPr
+        for tag in ("w:tblBorders", "w:tblCellMar"):
+            for old in tblPr.findall(qn(tag)):
+                tblPr.remove(old)
+        borders = OxmlElement("w:tblBorders")
+        for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+            el = OxmlElement(f"w:{edge}")
+            el.set(qn("w:val"), "single")
+            el.set(qn("w:sz"), "6")
+            el.set(qn("w:space"), "0")
+            el.set(qn("w:color"), "AEB4C2")
+            borders.append(el)
+        tblPr.append(borders)
+        mar = OxmlElement("w:tblCellMar")
+        for edge, w in (("top", 70), ("left", 110), ("bottom", 70), ("right", 110)):
+            el = OxmlElement(f"w:{edge}")
+            el.set(qn("w:w"), str(w))
+            el.set(qn("w:type"), "dxa")
+            mar.append(el)
+        tblPr.append(mar)
+        for row in t.rows:
+            for cell in row.cells:
+                for para_ in cell.paragraphs:
+                    para_.paragraph_format.space_before = Pt(0)
+                    para_.paragraph_format.space_after = Pt(0)
+                    para_.paragraph_format.line_spacing = 1.1
+                    for r in para_.runs:
+                        _set_run_font(r, 10)
+    for para_ in doc.paragraphs:
+        for r in para_.runs:
+            _set_run_font(r, 10.5)
+
+
 def kv_table(doc, rows, widths=(1.7, 5.3)):
     t = doc.add_table(rows=0, cols=2)
     t.style = "Table Grid"
@@ -547,5 +598,6 @@ def build_docx(snap, plan, halal, notes, charts, path, note_text="", note_warnin
     for f in foot:
         para(doc, f, size=8.5, color=MUTED, after=0)
 
+    harden(doc)
     doc.save(path)
     return path

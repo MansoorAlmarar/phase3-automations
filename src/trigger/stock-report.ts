@@ -53,7 +53,7 @@ async function sendText(text: string): Promise<boolean> {
   return false;
 }
 
-async function sendFile(path: string, caption: string, mime: string): Promise<boolean> {
+async function sendFile(path: string, caption: string, mime: string, kind: "document" | "photo" = "document"): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chat = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chat) return false;
@@ -69,8 +69,8 @@ async function sendFile(path: string, caption: string, mime: string): Promise<bo
       const form = new FormData();
       form.append("chat_id", chat);
       form.append("caption", caption.slice(0, 1000));
-      form.append("document", new Blob([new Uint8Array(bytes)], { type: mime }), basename(path));
-      const res = await fetch(`https://api.telegram.org/bot${token}/sendDocument`, {
+      form.append(kind, new Blob([new Uint8Array(bytes)], { type: mime }), basename(path));
+      const res = await fetch(`https://api.telegram.org/bot${token}/${kind === "photo" ? "sendPhoto" : "sendDocument"}`, {
         method: "POST",
         body: form,
         signal: AbortSignal.timeout(60_000),
@@ -161,8 +161,20 @@ export const stockReportCloud = task({
       String(result.caption ?? `${ticker} report`),
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
+    // Chart pictures first: they open instantly on a phone and zoom inside Telegram.
+    const chartNames: Record<string, string> = { sma_short: "SMA 9 and 20", sma_long: "SMA 50 and 200", rsi: "RSI 14" };
+    let photos = 0;
+    for (const key of ["sma_short", "sma_long", "rsi"]) {
+      const path = result.charts?.[key];
+      if (path && (await sendFile(path, `${ticker} ${chartNames[key]}`, "image/png", "photo"))) photos++;
+    }
     let htmlOk = false;
-    if (result.html) htmlOk = await sendFile(result.html, `${ticker} interactive chart (open in a browser)`, "text/html");
+    if (result.html)
+      htmlOk = await sendFile(
+        result.html,
+        `${ticker} interactive chart. Open this file in Chrome or Safari (not inside Telegram) to zoom and tick the moving averages.`,
+        "text/html"
+      );
     if (!docxOk) warnings.push("Could not send the Word report to Telegram.");
     if (result.html && !htmlOk) warnings.push("Could not send the interactive chart.");
     if (warnings.length) await sendText(`${ticker} report notes:\n- ${warnings.join("\n- ")}`);
@@ -172,6 +184,7 @@ export const stockReportCloud = task({
       ticker,
       docxSent: docxOk,
       htmlSent: htmlOk,
+      photosSent: photos,
       halal: result.halal?.status,
       ai: steps.ai?.model ?? null,
       aiDropped: steps.ai?.dropped?.length ?? 0,
