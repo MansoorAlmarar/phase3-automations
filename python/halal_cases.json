@@ -1,0 +1,10 @@
+{
+  "_comment": "Last known Halal outcomes, copied from STOIC references/halal-screening.md (case log). Update by hand after each old-flow check.",
+  "ARLO": {"status": "compliant", "date": "2026-10-11", "note": "Yaaqen, Zoya and Musaffa all Halal. Purification 1.05%."},
+  "ICHR": {"status": "compliant", "date": "2026-10-03", "note": "Yaqeen questionable, Zoya and Musaffa Halal. Compliant under the Yaqeen-only rule."},
+  "KEX": {"status": "compliant", "date": "2026-10-03", "note": "Yaqeen haram, Zoya and Musaffa Halal. Debt 16.9% of market cap. Yaqeen dropped."},
+  "SONO": {"status": "compliant", "date": "2026-10-03", "note": "Yaqeen haram, Zoya and Musaffa Halal. Debt 2.7%. Yaqeen dropped."},
+  "PLOW": {"status": "compliant", "date": "2026-10-03", "note": "Debt 31.0% of today's market cap (limit 30%), likely Yaqeen's reason. Zoya and Musaffa pass. Flagged."},
+  "LEVI": {"status": "compliant", "date": "2026-10-03", "note": "Debt 30.0% of market cap, borderline. Zoya and Musaffa pass. Flagged."},
+  "LPTH": {"status": "not_compliant", "date": "2026-10-02", "note": "Yaqeen and Musaffa not compliant, Zoya compliant. Mansoor sold and purified all profit in Sept 2026."}
+}

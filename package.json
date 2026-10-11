@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/MansoorAlmarar/phase3-automations#readme",
   "dependencies": {
+    "@trigger.dev/python": "4.7.3",
     "@trigger.dev/sdk": "4.7.3"
   },
   "devDependencies": {
