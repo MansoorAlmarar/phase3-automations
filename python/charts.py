@@ -265,6 +265,7 @@ button{font:inherit;font-weight:600;padding:5px 11px;border:1px solid #c9ccd6;ba
 button:active{background:#eef0f5}
 .chart{width:100%;touch-action:pan-y}
 .fallback{padding:12px;background:#fff} .fallback img{width:100%;height:auto;margin:0 0 14px;display:block}
+#r{position:relative} #rh{position:absolute;left:8px;top:4px;z-index:5;font-size:12px;color:#131722;pointer-events:none}
 #a{height:72vh;min-height:420px} #b{height:46vh;min-height:300px} #r{height:22vh;min-height:150px;margin-top:6px}
 .card:fullscreen #a{height:calc(100vh - 130px)} .card:fullscreen #b{height:calc(100vh - 290px)} .card:fullscreen #r{height:150px}
 </style></head><body>
@@ -286,7 +287,7 @@ On a phone: pinch to zoom, one finger drags sideways, swipe up or down scrolls t
 <div class="controls"><button data-c="B" data-z="in">+</button><button data-c="B" data-z="out">-</button>
 <button data-c="B" data-r="ytd">YTD</button><button data-c="B" data-r="m3">3M</button><button data-c="B" data-r="all">All</button>
 <button class="wheel">Wheel: zoom</button><button class="fs" data-card="cardB">Full screen</button></div>
-<div id="b" class="chart"></div><div id="r" class="chart"></div></div>
+<div id="b" class="chart"></div><div id="r" class="chart"><div id="rh"></div></div></div>
 
 </div>
 <script>
@@ -326,11 +327,24 @@ function drawLevels() { if (D.floor) { level(D.floor[0],'#787B86','Floor bottom'
 drawLevels();
 document.getElementById('lv').addEventListener('change', e => { lines.forEach(l => cA.removePriceLine(l)); lines.length = 0; if (e.target.checked) drawLevels(); });
 
-const rs = R.addLineSeries({color:'#7E57C2',lineWidth:2,priceLineVisible:false,title:'RSI 14',
-  autoscaleInfoProvider:() => ({priceRange:{minValue:0,maxValue:100}})});
+// TradingView default RSI: 30-70 band fill (10% purple), dashed grey 70/30 lines, 2px purple line, scale never tighter than the bands.
+const band = R.addBaselineSeries({baseValue:{type:'price',price:30},topLineColor:'rgba(0,0,0,0)',bottomLineColor:'rgba(0,0,0,0)',
+  topFillColor1:'rgba(126,87,194,0.10)',topFillColor2:'rgba(126,87,194,0.10)',bottomFillColor1:'rgba(0,0,0,0)',bottomFillColor2:'rgba(0,0,0,0)',
+  lineWidth:1,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false,
+  autoscaleInfoProvider:() => null});
+band.setData(D.rsi.map(p => ({time:p.time,value:70})));
+const rs = R.addLineSeries({color:'#7E57C2',lineWidth:2,priceLineVisible:false,lastValueVisible:true,
+  autoscaleInfoProvider:orig => { const r = orig(); if (!r) return r;
+    const lo = Math.min(30, r.priceRange.minValue), hi = Math.max(70, r.priceRange.maxValue), pad = (hi - lo) * 0.06;
+    return {priceRange:{minValue:lo - pad, maxValue:hi + pad}, margins:r.margins}; }});
 rs.setData(D.rsi);
-rs.createPriceLine({price:70,color:'#787B86',lineWidth:1,lineStyle:2,axisLabelVisible:false});
-rs.createPriceLine({price:30,color:'#787B86',lineWidth:1,lineStyle:2,axisLabelVisible:false});
+rs.createPriceLine({price:70,color:'#787B86',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:''});
+rs.createPriceLine({price:30,color:'#787B86',lineWidth:1,lineStyle:2,axisLabelVisible:true,title:''});
+// Header like TradingView: "RSI 14 close" in dark text, value in purple (follows the crosshair).
+const rh = document.getElementById('rh'), lastRsi = D.rsi[D.rsi.length - 1];
+function setRh(v) { rh.innerHTML = 'RSI 14 close <span style="color:#7E57C2">' + (v == null ? '' : v.toFixed(2)) + '</span>'; }
+setRh(lastRsi ? lastRsi.value : null);
+R.subscribeCrosshairMove(p => { const d = p.seriesData && p.seriesData.get(rs); setRh(d ? d.value : (lastRsi ? lastRsi.value : null)); });
 
 // Chart A moves alone. Chart B and its RSI strip move together (they are one chart).
 function pair(from, to) { from.timeScale().subscribeVisibleLogicalRangeChange(r => {

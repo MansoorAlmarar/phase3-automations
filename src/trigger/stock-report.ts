@@ -161,13 +161,8 @@ export const stockReportCloud = task({
       String(result.caption ?? `${ticker} report`),
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
-    // Chart pictures first: they open instantly on a phone and zoom inside Telegram.
-    const chartNames: Record<string, string> = { sma_short: "SMA 9 and 20", sma_long: "SMA 50 and 200", rsi: "RSI 14" };
-    let photos = 0;
-    for (const key of ["sma_short", "sma_long", "rsi"]) {
-      const path = result.charts?.[key];
-      if (path && (await sendFile(path, `${ticker} ${chartNames[key]}`, "image/png", "photo"))) photos++;
-    }
+    // No chart photos in Telegram: the interactive HTML (opened in the Documents app) replaces them. Charts stay in the Word report.
+    const photos = 0;
     let htmlOk = false;
     if (result.html)
       htmlOk = await sendFile(
