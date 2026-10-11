@@ -18,8 +18,18 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib import font_manager  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.patches import Rectangle  # noqa: E402
+
+# TradingView's chart font chain is Trebuchet MS, then Roboto. Trebuchet is not free to ship, so Roboto (Apache 2.0) is bundled.
+_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+try:
+    for _f in ("Roboto-Regular.ttf", "Roboto-Bold.ttf"):
+        font_manager.fontManager.addfont(os.path.join(_FONT_DIR, _f))
+    plt.rcParams["font.family"] = ["Roboto", "DejaVu Sans"]
+except Exception:  # noqa: BLE001 - a missing font must never stop a report
+    pass
 
 # TradingView light theme. SMA colors chosen to stay clear of the red/green candles and each other.
 UP, DOWN = "#089981", "#F23645"
@@ -139,16 +149,19 @@ def _figure(snap, plan, smas, title, path, with_rsi=False):
         plt.setp(ax.get_xticklabels(), visible=False)
         rsi = rsi_series(full_close)[view.index]
         axr.set_facecolor(BG)
-        axr.axhspan(30, 70, color=RSI_COLOR, alpha=0.08)
-        axr.axhline(70, color="#787B86", linestyle="--", linewidth=0.8)
-        axr.axhline(30, color="#787B86", linestyle="--", linewidth=0.8)
-        axr.axhline(50, color="#B2B5BE", linestyle=":", linewidth=0.6)
-        axr.plot(range(n), rsi.values, color=RSI_COLOR, linewidth=1.3)
-        axr.set_ylim(0, 100)
+        # TradingView default RSI: purple 2px line, bands at 70/30 (dashed grey), 30-70 fill at 10% purple,
+        # no middle line, autoscaled to the data (never tighter than the bands).
+        axr.axhspan(30, 70, color=RSI_COLOR, alpha=0.10, linewidth=0)
+        axr.axhline(70, color="#787B86", linestyle=(0, (4, 4)), linewidth=0.9)
+        axr.axhline(30, color="#787B86", linestyle=(0, (4, 4)), linewidth=0.9)
+        axr.plot(range(n), rsi.values, color=RSI_COLOR, linewidth=1.6, solid_joinstyle="round")
+        rlo, rhi = min(30.0, float(rsi.min())), max(70.0, float(rsi.max()))
+        rpad = (rhi - rlo) * 0.06
+        axr.set_ylim(rlo - rpad, rhi + rpad)
         axr.set_yticks([30, 50, 70])
-        _tag(axr, float(rsi.iloc[-1]), f"{rsi.iloc[-1]:.1f}", RSI_COLOR)
-        axr.text(0.01, 0.93, f"RSI 14  {rsi.iloc[-1]:.2f}", transform=axr.transAxes, fontsize=8, color=RSI_COLOR,
-                 va="top", fontweight="bold")
+        _tag(axr, float(rsi.iloc[-1]), f"{rsi.iloc[-1]:.2f}", RSI_COLOR)
+        axr.text(0.01, 0.93, "RSI 14 close", transform=axr.transAxes, fontsize=8, color=TEXT, va="top")
+        axr.text(0.155, 0.93, f"{rsi.iloc[-1]:.2f}", transform=axr.transAxes, fontsize=8, color=RSI_COLOR, va="top")
         _right_axis(axr)
         axr.set_xticks(pos)
         axr.set_xticklabels(lab)

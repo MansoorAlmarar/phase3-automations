@@ -172,7 +172,7 @@ export const stockReportCloud = task({
     if (result.html)
       htmlOk = await sendFile(
         result.html,
-        `${ticker} interactive chart. Open this file in Chrome or Safari (not inside Telegram) to zoom and tick the moving averages.`,
+        `${ticker} interactive chart. Phone: tap Share, then Save to Documents (Readdle app), and open it there. PC: open in Chrome or Edge.`,
         "text/html"
       );
     if (!docxOk) warnings.push("Could not send the Word report to Telegram.");
