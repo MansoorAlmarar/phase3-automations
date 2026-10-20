@@ -310,7 +310,7 @@ const candleOpts = {upColor:'#089981',downColor:'#F23645',borderUpColor:'#089981
 const cA = A.addCandlestickSeries(candleOpts); cA.setData(D.candles);
 const cB = B.addCandlestickSeries(candleOpts); cB.setData(D.candles);
 
-const widths = {9:1,20:1,50:2,200:3}, smaS = {};
+const widths = {9:1,20:1,50:1,200:1}, smaS = {};
 for (const k of ['9','20','50','200']) {
   smaS[k] = A.addLineSeries({color:D.colors[k],lineWidth:widths[k],priceLineVisible:false,lastValueVisible:true,title:'SMA '+k});
   smaS[k].setData(D.sma[k]);

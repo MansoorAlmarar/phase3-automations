@@ -4,7 +4,8 @@ import { stockReportCloud } from "./stock-report";
 // Weekly stock report for the positions Mansoor holds. Monday 17:00 Dubai.
 // Everything else is on demand: Telegram `/report TICKER`.
 // Keep this list short: each full report costs about 6 Firecrawl credits (see the spec, section 12b).
-const WEEKLY_TICKERS = ["ARLO"];
+// Paused 2026-10-20: ARLO was sold on Oct 15. Add a ticker here to restart the weekly report.
+const WEEKLY_TICKERS: string[] = [];
 
 export const stockReportWeekly = schedules.task({
   id: "stock-report-weekly",
