@@ -23,7 +23,8 @@ from halal_check import _req  # Firecrawl calls with 429 retry
 OPENROUTER = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODELS = ["nvidia/nemotron-3-super-120b-a12b:free", "google/gemma-4-31b-it:free",
                   "nvidia/nemotron-3-ultra-550b-a55b:free"]
-FORBIDDEN = re.compile(r"\b(buy|buying|sell|selling|enter|accumulate|recommend\w*|should|must|advis\w*|target price)\b", re.I)
+FORBIDDEN = re.compile(r"\b(buy\w*|sell\w*|enter|hold\w*|accumulate|trim|exit|target\w*|recommend\w*|should|must|advis\w*|"
+                       r"take profit|add to)\b", re.I)
 NUM = re.compile(r"-?\d[\d,]*\.?\d*")
 
 SYSTEM = """You write short research notes for ONE stock report. You are not an adviser.
@@ -76,7 +77,7 @@ def web_context(snap, log):
                     seen.add(u)
                     out.append({"id": f"W{len(out)}", "title": (it.get("title") or "")[:140], "url": u,
                                 "snippet": (it.get("description") or "")[:420]})
-        except requests.RequestException as e:
+        except (requests.RequestException, ValueError, AttributeError) as e:  # bad JSON or shape from the web search
             log(f"ai: web search failed {type(e).__name__}")
     return out[:8]
 
@@ -191,9 +192,18 @@ def number_ok(x, allowed):
     return any(abs(x - a) <= max(0.011, abs(a) * 0.006) for a in allowed)
 
 
+def _index(item, n):
+    """The AI's id for a news item as a list index. None unless it is a real index: negative ids would count from the end."""
+    try:
+        i = int(item.get("id"))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    return i if 0 <= i < n else None
+
+
 def clean_text(s, allowed):
-    """Return (text, reason). reason is None when the text is fine."""
-    s = (s or "").strip()
+    """Return (text, reason). reason is None when the text is fine. Non-text values (a number where a sentence should be) are text too."""
+    s = "" if s is None else str(s).strip()
     if not s:
         return "", None
     s = s.replace("—", ",").replace("–", "-")
@@ -210,7 +220,7 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
     try:
         if not os.environ.get("OPENROUTER_API_KEY", "").strip():
             log("ai: OPENROUTER_API_KEY missing, no notes")
-            return None
+            return {"_error": "OPENROUTER_API_KEY missing"}
         web = web_context(snap, log) if use_web else []
         data, web_txt = build_input(snap, plan, halal, web)
         user = "DATA (json):\n" + json.dumps(data, default=str) + "\n\nWEB (untrusted text, quote only):\n" + web_txt
@@ -219,6 +229,9 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
         if raw is None:
             log(f"ai: no notes ({err})")
             return {"_error": err}
+        if not isinstance(raw, dict):
+            log("ai: answer is not a JSON object, no notes")
+            return {"_error": "AI answer was not a JSON object"}
         allowed = allowed_numbers(data, web_txt)
         dropped = []
 
@@ -229,7 +242,7 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
             return c
 
         notes = {"model": model, "headline": txt("headline", raw.get("headline"))}
-        fn = raw.get("fundamentals_notes") or {}
+        fn = raw.get("fundamentals_notes") if isinstance(raw.get("fundamentals_notes"), dict) else {}
         notes["fundamentals_notes"] = {k: txt(f"fundamentals.{k}", fn.get(k)) for k in
                                        ("revenue_growth", "eps_growth", "eps_growth_ttm", "gross_margin", "net_margin", "pe", "debt_equity")}
         notes["fundamentals_verdict"] = txt("verdict", raw.get("fundamentals_verdict"))
@@ -239,10 +252,10 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
         fin = snap.get("news") or []
         news = []
         for it in (raw.get("news") or [])[:3]:
-            try:
-                n = fin[int(it.get("id"))]
-            except (TypeError, ValueError, IndexError):
+            idx = _index(it, len(fin))
+            if idx is None:
                 continue
+            n = fin[idx]
             take = it.get("take") if it.get("take") in ("positive", "negative", "neutral") else "neutral"
             news.append({"date": n["date"], "headline": n["headline"], "source": n["source"], "url": n["url"],
                          "take": take, "why": txt("news.why", it.get("why"))})
@@ -251,6 +264,8 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
         by_id = {w["id"]: w for w in web}
         ctx = []
         for it in (raw.get("context") or [])[:3]:
+            if not isinstance(it, dict):
+                continue
             w = by_id.get(str(it.get("id")))
             point = txt("context", it.get("point"))
             if w and point:
@@ -259,6 +274,8 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
 
         risks = []
         for r in (raw.get("risks") or [])[:4]:
+            if not isinstance(r, dict):
+                continue
             title, detail = txt("risk.title", r.get("title")), txt("risk.detail", r.get("detail"))
             if title and detail:  # a risk without its supporting line is dropped, never shown half-empty
                 lvl = r.get("level") if r.get("level") in ("high", "medium", "low") else "medium"

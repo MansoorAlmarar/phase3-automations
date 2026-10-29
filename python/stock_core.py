@@ -51,6 +51,10 @@ def num(x, nd=2):
     return None if x != x else round(x, nd)
 
 
+def _whole(x):
+    return None if x != x else int(x)
+
+
 def retry(fn, tries=3, wait=2.0):
     """Yahoo (yfinance) is unofficial and flaky: try a few times before giving up. Re-raises the last error."""
     import time
@@ -65,12 +69,13 @@ def retry(fn, tries=3, wait=2.0):
 
 
 def holdings_for(ticker):
-    """Positions kept in the HOLDINGS_JSON env var (not in git). {"ARLO": {"lots": [[864, 12.97], [56.8, 12.55]], "plan_note": "..."}}"""
+    """Positions kept in the HOLDINGS_JSON env var (not in git). {"ARLO": {"lots": [[864, 12.97], [56.8, 12.55]], "plan_note": "..."}}
+    Returns (position or None, problem or None). A broken value is a problem to report, not a silent "watching"."""
     import json
     try:
-        return (json.loads(os.environ.get("HOLDINGS_JSON", "") or "{}") or {}).get(ticker)
+        return (json.loads(os.environ.get("HOLDINGS_JSON", "") or "{}") or {}).get(ticker), None
     except ValueError:
-        return None
+        return None, "HOLDINGS_JSON is not valid JSON, so no stored position was read."
 
 
 def parse_note(note, ticker=None):
@@ -101,21 +106,25 @@ def parse_note(note, ticker=None):
     explicit_watch = re.search(r"\bwatch(?:ing)?\b", text_pos, re.I)
     if re.search(r"\bhold(?:ing)?\b", text_pos, re.I):
         lots = [[float(a), float(b)] for a, b in
-                re.findall(r"(\d+(?:\.\d+)?)\s*(?:shares?)?\s*(?:@|at)\s*\$?(\d+(?:\.\d+)?)", text_pos, re.I)]
+                re.findall(r"(\d+(?:\.\d+)?)\s*(?:shares?)?\s*(?:@|at)\s*\$?(\d+(?:\.\d+)?)", text_pos, re.I) if float(a) > 0]
         if lots:
             finish(lots, "note")
         else:
-            m = re.search(r"\bhold(?:ing)?\b[^0-9]{0,20}\$?\s*(\d+(?:\.\d+)?)", text_pos, re.I) or \
-                re.search(r"(?:at|@|entry)\s*\$?\s*(\d+(?:\.\d+)?)", text_pos, re.I)
+            # A price needs a marker (at, @, entry or $). A bare number is a share count: "holding 2 shares" is not a price.
+            m = re.search(r"(?:\bat\b|@|\bentry\b|\$)\s*(\d+(?:\.\d+)?)", text_pos, re.I)
             if m:
                 out.update(position="holding", entry=float(m.group(1)), source="note")
             else:
                 out["warning"] = "Note says holding but no entry price was readable, so the report treats it as watching."
     elif not explicit_watch and ticker:
-        h = holdings_for(ticker)
-        if h and h.get("lots"):
-            finish([[float(s), float(p)] for s, p in h["lots"]], "holdings")
+        h, problem = holdings_for(ticker)
+        h = h or {}
+        lots = [[float(s), float(p)] for s, p in h.get("lots") or [] if float(s) > 0]
+        if lots:
+            finish(lots, "holdings")
             out["plan_note"] = h.get("plan_note")
+        elif problem:
+            out["warning"] = problem
     return out
 
 
@@ -352,11 +361,13 @@ def range_cycles(hist, last, window=7, tol_pct=5, min_bounce_pct=10, lookahead=4
             floors[-1]["touches"].append(ts)
         else:
             floors.append({"band": [p, p], "touches": [ts]})
-    floors = [f for f in floors if len(f["touches"]) >= 2 and f["band"][0] <= last]
+    floors = [f for f in floors if len(f["touches"]) >= 2]
     trend_1y = (close.iloc[-1] / close.iloc[0] - 1) * 100
     if not floors:
         return {"verdict": "no clear floor", "trend_1y_pct": num(trend_1y, 0)}
-    f = max(floors, key=lambda f: (len(f["touches"]), f["band"][0]))
+    # Prefer a floor under the price. A floor above the price still matters when the price has broken it (checked below).
+    held = [f for f in floors if f["band"][0] <= last]
+    f = max(held or floors, key=lambda f: (len(f["touches"]), f["band"][0]))
 
     bounces = []
     touches = sorted(f["touches"])
@@ -383,6 +394,8 @@ def range_cycles(hist, last, window=7, tol_pct=5, min_bounce_pct=10, lookahead=4
             "now": "back at the old floor from below" if last >= f["band"][0] else "below the floor",
             "verdict": "floor broken",
         }
+    if f["band"][0] > last:  # above the price and not broken: the price has no floor under it
+        return {"verdict": "no clear floor", "trend_1y_pct": num(trend_1y, 0)}
     return {
         "floor": [num(f["band"][0]), num(f["band"][1])], "touches": len(f["touches"]), "bounces": bounces,
         "good_bounces": len(good),
@@ -406,6 +419,11 @@ def technicals(ticker, errors):
     if full.empty:
         errors.append("yfinance history: no rows")
         return {}
+    return technicals_from_history(full)
+
+
+def technicals_from_history(full):
+    """Indicators from 2 years of daily bars. Pure: no network, so tests can feed fixtures."""
     hist = full.tail(252)
     close = hist["Close"]
     fclose = full["Close"]
@@ -426,7 +444,7 @@ def technicals(ticker, errors):
         "range": range_cycles(hist, last),
         "return_pct": {"5d": ret(5), "1m": ret(21), "3m": ret(63), "6m": ret(126)},
         "range_1y": {"low": num(hist["Low"].min()), "high": num(hist["High"].max())},
-        "volume": {"last": int(hist["Volume"].iloc[-1]), "avg_20d": int(hist["Volume"].tail(20).mean())},
+        "volume": {"last": _whole(hist["Volume"].iloc[-1]), "avg_20d": _whole(hist["Volume"].tail(20).mean())},
         "history": {"dates": [str(d.date()) for d in full.index], "close": [num(c, 4) for c in fclose],
                     "open": [num(x, 4) for x in full["Open"]], "high": [num(x, 4) for x in full["High"]],
                     "low": [num(x, 4) for x in full["Low"]]},

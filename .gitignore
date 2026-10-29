@@ -1,4 +1,4 @@
-﻿node_modules/
+node_modules/
 .env
 .env.*
 !.env.example
@@ -9,3 +9,4 @@ dist/
 .venv/
 __pycache__/
 out/
+.pytest_cache/
