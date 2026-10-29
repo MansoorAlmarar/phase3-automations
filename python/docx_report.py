@@ -230,14 +230,14 @@ def rule_flags(snap, plan, halal):
     rg = t.get("range") or {}
     nx = (snap.get("earnings") or {}).get("next") or {}
     if halal.get("status") != "compliant":
-        flags.append(("high", "Halal not confirmed", "Do not use this plan until the Halal status is checked."))
+        flags.append(("high", "Halal not confirmed", "Halal status is not confirmed, so this report is incomplete for that check."))
     if rg.get("broken"):
         flags.append(("high", "Floor broken", f"{rg['broken']['closes_below']} daily closes under the floor, "
                                               f"last on {fdate(rg['broken']['last_close_below'])}."))
     if plan.get("loss_pct") is not None and abs(plan["loss_pct"]) > plan["goal_pct"]:
         flags.append(("high", "Stop further than the goal", f"Stop loses {abs(plan['loss_pct']):.1f}% to gain {plan['goal_pct']}%."))
     if plan.get("stop") is None:
-        flags.append(("medium", "No stop level found", "No floor or support below the entry. Set one manually."))
+        flags.append(("medium", "No stop level found", "No floor or support below the entry, so no computed stop."))
     if nx.get("days_away") is not None and nx["days_away"] <= 45:
         flags.append(("medium", "Earnings inside the window", f"{fdate(nx['date'])} ({nx['days_away']} days). Earnings move price hard either way."))
     if plan.get("in_way"):
@@ -279,7 +279,7 @@ def eps_rows(snap, m, fn):
             return
         gp = d.get("growth_pct")
         txt = f"{money(d['now'])} vs {money(d['year_ago'])}" + (f" ({pct(gp)})" if gp is not None else " (not meaningful: prior EPS was zero or negative)")
-        rows.append((label, txt, fn.get(note_key, "")))
+        rows.append((label, txt, fn.get(note_key) or "n/a"))
 
     one("EPS (adjusted), latest quarter vs year ago", g.get("quarter"), "eps_growth")
     one("EPS (adjusted), last 4 quarters vs previous 4", g.get("ttm"), "eps_growth_ttm")
@@ -348,10 +348,9 @@ def add_summary(doc, snap, plan, halal, flags):
         para(doc, "- No rule-based flags.", after=1)
 
     ec = plan.get("entry_check")
-    para(doc, "To consider: entry price", bold=True, after=1).paragraph_format.space_before = Pt(6)
+    para(doc, "Entry check at today's price (research figures only)", bold=True, after=1).paragraph_format.space_before = Pt(6)
     if ec:
-        lead = "If you were entering today at" if plan["position"] == "watching" else "For a new entry today at"
-        para(doc, f"- {lead} {money(ec['price'])}: stop {money(ec['stop'])} ({pct(ec['loss_pct'])}, {plan['stop_buffer_pct']}% below "
+        para(doc, f"- At today's price {money(ec['price'])}: stop {money(ec['stop'])} ({pct(ec['loss_pct'])}, {plan['stop_buffer_pct']}% below "
                   f"{ec['stop_ref_label']}), reward : risk {ec['reward_risk']} : 1.", after=1)
         d1 = ec["pct_above_1to1"]
         para(doc, f"- Entry price where reward : risk is 1 : 1 with that stop: {money(ec['entry_for_1to1'])}. "
@@ -396,10 +395,11 @@ def build_docx(snap, plan, halal, notes, charts, path, note_text="", note_warnin
         rf.set(qn(attr), "Calibri")
 
     # 1. Header
-    para(doc, f"{snap['ticker']}  |  {p.get('companyName') or ''}", bold=True, size=20, color=INK, after=0)
+    para(doc, f"{snap['ticker']}  |  {p.get('companyName') or 'company name not available'}", bold=True, size=20, color=INK, after=0)
     chg = q.get("change_pct")
     stale = t.get("as_of") and t["as_of"] != snap["date"]
-    para(doc, f"{money(plan['price'])} ({pct(chg, 2)} {'last session' if stale else 'today'})  |  {p.get('sector') or ''}  |  {fdate(snap['date'])}",
+    para(doc, f"{money(plan['price'])} ({pct(chg, 2)} {'last session' if stale else 'today'})  |  "
+              f"{p.get('sector') or 'sector not available'}  |  {fdate(snap['date'])}",
          size=10.5, color=MUTED, after=2)
     if stale:
         para(doc, f"Market closed. Prices are from the last close ({fdate(t['as_of'])}).", size=10, color=MUTED, after=2)
@@ -452,7 +452,7 @@ def build_docx(snap, plan, halal, notes, charts, path, note_text="", note_warnin
         ("Profit goal", f"+{plan['goal_pct']}% = {money(plan['target'])}"
          + (f"  (resistance at {', '.join(money(x) for x in plan['in_way'])} on the way)" if plan.get("in_way") else "")),
         ("Stop", (f"{money(plan['stop'])} ({pct(plan['loss_pct'])}), {plan['stop_buffer_pct']}% below {plan['stop_ref_label']} {money(plan['stop_ref'])}"
-                  if plan.get("stop") else "No support below entry. Set one manually.")),
+                  if plan.get("stop") else "No support below entry, so no computed stop.")),
         ("Reward : risk", f"{plan['reward_risk']} : 1" if plan.get("reward_risk") else "n/a"),
     ]
     if pb.get("done"):
@@ -513,13 +513,14 @@ def build_docx(snap, plan, halal, notes, charts, path, note_text="", note_warnin
     heading(doc, "Fundamentals")
     fn = notes.get("fundamentals_notes") or {}
     frows = [
-        ("Revenue growth (latest quarter, YoY)", pct(m.get("revenueGrowthQuarterlyYoy")), fn.get("revenue_growth", "")),
+        ("Revenue growth (latest quarter, YoY)", pct(m.get("revenueGrowthQuarterlyYoy")), fn.get("revenue_growth") or "n/a"),
         *eps_rows(snap, m, fn),
-        ("Gross margin (TTM)", pct(m.get("grossMarginTTM"), sign=False), fn.get("gross_margin", "")),
-        ("Net margin (TTM)", pct(m.get("netProfitMarginTTM"), sign=False), fn.get("net_margin", "")),
-        ("P/E (TTM)", f"{m['peTTM']:.1f}x" if m.get("peTTM") else "n/a (no profit)", fn.get("pe", "")),
-        ("Debt / equity", f"{m['totalDebt/totalEquityQuarterly']:.2f}" if m.get("totalDebt/totalEquityQuarterly") is not None else "n/a", fn.get("debt_equity", "")),
-        ("Market cap", big(p.get("marketCap")), ""),
+        ("Gross margin (TTM)", pct(m.get("grossMarginTTM"), sign=False), fn.get("gross_margin") or "n/a"),
+        ("Net margin (TTM)", pct(m.get("netProfitMarginTTM"), sign=False), fn.get("net_margin") or "n/a"),
+        ("P/E (TTM)", f"{m['peTTM']:.1f}x" if m.get("peTTM") else "n/a (no profit)", fn.get("pe") or "n/a"),
+        ("Debt / equity", f"{m['totalDebt/totalEquityQuarterly']:.2f}" if m.get("totalDebt/totalEquityQuarterly") is not None else "n/a",
+         fn.get("debt_equity") or "n/a"),
+        ("Market cap", big(p.get("marketCap")), "Latest value from the company profile."),
     ]
     grid_table(doc, ["Metric", "Value", "Note"], frows, widths=(2.8, 1.3, 2.9))
     l4 = (snap.get("earnings") or {}).get("last_4") or []

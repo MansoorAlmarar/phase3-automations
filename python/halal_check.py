@@ -182,8 +182,9 @@ def _public_reason(screener, ticker, log):
         if r.status_code != 200:
             log(f"halal: public page {screener} HTTP {r.status_code}")
             return None
-        md = (r.json().get("data") or {}).get("markdown") or ""
-    except requests.RequestException:
+        md = str((r.json().get("data") or {}).get("markdown") or "")
+    except Exception as e:  # noqa: BLE001 - an optional reason must never cost the Osooli verdict
+        log(f"halal: public page {screener} failed {type(e).__name__}")
         return None
     hits = []
     for ln in md.splitlines():

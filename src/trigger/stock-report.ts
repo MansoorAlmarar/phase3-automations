@@ -100,9 +100,9 @@ export const stockReportCloud = task({
   machine: "small-2x", // pandas + matplotlib need more than the default memory
   maxDuration: 420,
   retry: { maxAttempts: 1 }, // a retry would re-bill the scrapes and AI calls
-  onFailure: async ({ payload, error }) => {
+  onFailure: async ({ payload, error }: { payload: Payload; error: unknown }) => {
     logger.error("task failed hard", { error: errMsg(error) });
-    const t = String((payload as Payload)?.ticker ?? "?").slice(0, 8).toUpperCase();
+    const t = String(payload?.ticker ?? "?").slice(0, 8).toUpperCase();
     await sendText(`Stock report task FAILED for ${t}: ${errMsg(error).slice(0, 200)}`);
   },
   run: async (payload: Payload, { ctx }) => {
@@ -121,7 +121,7 @@ export const stockReportCloud = task({
     try {
       const outDir = await mkdtemp(join(tmpdir(), `report-${ticker}-`));
       const args = [ticker, "--out", outDir];
-      if (note) args.push("--note", note);
+      if (note) args.push(`--note=${note}`); // one token: a note that starts with "-" would otherwise be read as a flag
       if (payload.noHalal) args.push("--no-halal");
       if (payload.noAi) args.push("--no-ai");
       if (payload.noWeb) args.push("--no-web");
@@ -162,7 +162,6 @@ export const stockReportCloud = task({
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     );
     // No chart photos in Telegram: the interactive HTML (opened in the Documents app) replaces them. Charts stay in the Word report.
-    const photos = 0;
     let htmlOk = false;
     if (result.html)
       htmlOk = await sendFile(
@@ -179,7 +178,6 @@ export const stockReportCloud = task({
       ticker,
       docxSent: docxOk,
       htmlSent: htmlOk,
-      photosSent: photos,
       halal: result.halal?.status,
       ai: steps.ai?.model ?? null,
       aiDropped: steps.ai?.dropped?.length ?? 0,

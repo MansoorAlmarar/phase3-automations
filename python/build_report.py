@@ -19,6 +19,7 @@ from datetime import date
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+MIN_BARS = 60  # daily closes needed for the floor, RSI 14 and the 50-day average
 
 
 def load_dotenv_light(path):
@@ -93,9 +94,13 @@ def main():
         result["steps"]["note"] = {k: pos[k] for k in ("position", "entry", "shares", "peers", "source")}
 
         snap = stock_core.build_snapshot(ticker, user_peers=pos["peers"])
-        result["steps"]["snapshot"] = {"errors": snap["errors"], "rows": len((snap["technicals"].get("history") or {}).get("close", []))}
-        if not snap["technicals"].get("history"):
+        bars = len((snap["technicals"].get("history") or {}).get("close", []))
+        result["steps"]["snapshot"] = {"errors": snap["errors"], "rows": bars}
+        if not bars:
             result["error"] = "no price data"
+            return result
+        if bars < MIN_BARS:  # the floor, RSI and the 50-day average would be blanks or noise: stop instead
+            result["error"] = f"not enough price history ({bars} daily bars, need {MIN_BARS})"
             return result
 
         plan = stock_core.build_plan(snap, pos)

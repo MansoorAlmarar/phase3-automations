@@ -221,6 +221,7 @@ def _img_tags(pngs):
 
 
 def make_interactive(snap, plan, path, pngs=()):
+    plan = plan or {}
     df = frame(snap)
     close = df["close"]
     start = start_of_view(df.index[-1])
@@ -242,7 +243,8 @@ def make_interactive(snap, plan, path, pngs=()):
         "stop": plan.get("stop"), "target": plan.get("target"),
     }
     imgs = _img_tags(pngs)
-    html = HTML.replace("__IMGS__", imgs).replace("__DATA__", json.dumps(data)).replace("__LIB__", _lib())
+    # "<" is escaped so no value can close the <script> tag early.
+    html = HTML.replace("__IMGS__", imgs).replace("__DATA__", json.dumps(data).replace("<", "\\u003c")).replace("__LIB__", _lib())
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)
     return path
