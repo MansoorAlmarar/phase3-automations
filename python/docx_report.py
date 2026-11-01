@@ -235,13 +235,13 @@ def rule_flags(snap, plan, halal):
         flags.append(("high", "Floor broken", f"{rg['broken']['closes_below']} daily closes under the floor, "
                                               f"last on {fdate(rg['broken']['last_close_below'])}."))
     if plan.get("loss_pct") is not None and abs(plan["loss_pct"]) > plan["goal_pct"]:
-        flags.append(("high", "Stop further than the goal", f"Stop loses {abs(plan['loss_pct']):.1f}% to gain {plan['goal_pct']}%."))
+        flags.append(("high", "Stop further than the rule level", f"Stop loses {abs(plan['loss_pct']):.1f}% to gain {plan['goal_pct']}%."))
     if plan.get("stop") is None:
         flags.append(("medium", "No stop level found", "No floor or support below the entry, so no computed stop."))
     if nx.get("days_away") is not None and nx["days_away"] <= 45:
         flags.append(("medium", "Earnings inside the window", f"{fdate(nx['date'])} ({nx['days_away']} days). Earnings move price hard either way."))
     if plan.get("in_way"):
-        flags.append(("medium", "Resistance before the goal", "At " + ", ".join(money(p) for p in plan["in_way"]) + "."))
+        flags.append(("medium", "Resistance before the rule level", "At " + ", ".join(money(p) for p in plan["in_way"]) + "."))
     adj = (((snap.get("earnings") or {}).get("eps_growth") or {}).get("quarter") or {}).get("now")
     gaap = (snap.get("gaap_eps") or {}).get("value")
     if adj and gaap is not None and adj > 0 and gaap < adj * 0.5:
@@ -328,7 +328,7 @@ def add_summary(doc, snap, plan, halal, flags):
         status.append(f"Holding at an average {money(plan['entry'])}. Price {money(plan['price'])} ({pct(plan['pnl_pct'])})"
                       + (f", {money(plan['pnl_abs'])} on {plan['shares']:g} shares." if plan.get("pnl_abs") is not None else "."))
         if plan.get("stop"):
-            status.append(f"Goal {money(plan['target'])} is {pct(plan['to_goal_pct'])} away. Computed stop {money(plan['stop'])} is "
+            status.append(f"Rule level {money(plan['target'])} is {pct(plan['to_goal_pct'])} away. Computed stop {money(plan['stop'])} is "
                           f"{pct(plan['to_stop_pct'])} away (reward : risk from your entry {plan['reward_risk']} : 1).")
         if plan.get("plan_note"):
             status.append(f"Your plan: {plan['plan_note']}")
@@ -352,10 +352,6 @@ def add_summary(doc, snap, plan, halal, flags):
     if ec:
         para(doc, f"- At today's price {money(ec['price'])}: stop {money(ec['stop'])} ({pct(ec['loss_pct'])}, {plan['stop_buffer_pct']}% below "
                   f"{ec['stop_ref_label']}), reward : risk {ec['reward_risk']} : 1.", after=1)
-        d1 = ec["pct_above_1to1"]
-        para(doc, f"- Entry price where reward : risk is 1 : 1 with that stop: {money(ec['entry_for_1to1'])}. "
-                  + (f"Price now is {d1:.1f}% above it." if d1 > 0 else f"Price now is {abs(d1):.1f}% below it, so reward : risk is better than 1 : 1."),
-             after=1)
         if ec.get("floor_top"):
             d2 = ec["pct_above_floor_top"]
             if d2 > 0 and ec.get("reward_risk_at_floor_top"):
@@ -449,7 +445,7 @@ def build_docx(snap, plan, halal, notes, charts, path, note_text="", note_warnin
     pb = plan.get("past_bounces") or {}
     rows = [
         ("Entry", f"{money(plan['entry'])} ({'your position' if plan['position'] == 'holding' else 'price now'})"),
-        ("Profit goal", f"+{plan['goal_pct']}% = {money(plan['target'])}"
+        (f"Rule level +{plan['goal_pct']}%", f"+{plan['goal_pct']}% = {money(plan['target'])}"
          + (f"  (resistance at {', '.join(money(x) for x in plan['in_way'])} on the way)" if plan.get("in_way") else "")),
         ("Stop", (f"{money(plan['stop'])} ({pct(plan['loss_pct'])}), {plan['stop_buffer_pct']}% below {plan['stop_ref_label']} {money(plan['stop_ref'])}"
                   if plan.get("stop") else "No support below entry, so no computed stop.")),
@@ -463,7 +459,7 @@ def build_docx(snap, plan, halal, notes, charts, path, note_text="", note_warnin
                               if plan.get("shares") else "Shares not given")),
                 ("Profit / loss now", (f"{money(plan['pnl_abs'])} ({pct(plan['pnl_pct'])})" if plan.get("pnl_abs") is not None
                                        else pct(plan["pnl_pct"]))),
-                ("Distance to goal", f"{pct(plan['to_goal_pct'])} (to {money(plan['target'])})"),
+                ("Distance to rule level", f"{pct(plan['to_goal_pct'])} (to {money(plan['target'])})"),
                 ("Distance to stop", (f"{pct(plan['to_stop_pct'])} (to {money(plan['stop'])})"
                                       + (f", about {money(abs(plan['risk_abs']))} at risk" if plan.get("risk_abs") else "")
                                       if plan.get("stop") else "n/a"))]

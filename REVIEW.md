@@ -33,21 +33,17 @@ Checks run: `npm test` (73 Python tests, offline, fixtures only), and a TypeScri
 | 22 | Low | `python/charts.py:245` | The interactive chart's inline JSON was not escaped for `</script>`. The only inputs are validated, so this is defence in depth. | `<` is escaped. Test: `test_values_cannot_close_the_script_tag`. |
 | 23 | Low | `python/stock_core.py:398` (`technicals`) | Price fetch and indicator maths were one function, so the maths could not be tested offline. | Split into `technicals_from_history(full)`, which is pure. |
 
-## Left for a decision (Judgment)
+## Judgment calls: decisions (2026-10-31)
 
-**J1. Price levels that read like targets or entry levels.** The numbers come from Mansoor's own rules (+5% goal, 1.5% stop buffer, ladder), not from any advice in the code. But in a research report, "Goal", "Profit goal", "Distance to goal" (`python/charts.py:326`, `python/docx_report.py:452-466`) and "Entry price where reward : risk is 1 : 1" (`python/docx_report.py:357`) read close to a price target and an entry level. I changed the surrounding wording (fix 14 and 15) but kept the numbers and labels. Mansoor should decide whether to rename them (for example "Rule level +5%") or drop the 1:1 entry line.
-
-**J2. Yaqeen-only Halal rule.** `python/halal_check.py:271-291` marks a stock compliant when Zoya and Musaffa both pass and our own ratios pass, dropping Yaaqen. That is a compliance decision. Left as is.
-
-**J3. `halal_cases.json` is personal.** `python/halal_cases.json:9` records trading history ("Mansoor sold and purified all profit in Sept 2026"). The repo is private, so this is acceptable, but it is personal data in git. Consider moving it to the STOIC repo or an env value.
-
-**J4. AI notes go to third-party free models.** `python/ai_notes.py:84-110` (`build_input`) send price levels, ratios, news and Halal verdicts, but no share counts or cost (verified by `test_model_input_has_no_share_counts_or_dollar_cost`). Confirm that sending the rest to free OpenRouter models is acceptable.
-
-**J5. Thresholds I chose.** `MIN_BARS = 60` (`python/build_report.py`, new constant) is my choice. Floor tolerance, break percentage and lookback (`python/stock_core.py:23-25`, `:339`) were kept from the original. Confirm them.
-
-**J6. Dead scaffolding.** `src/trigger/example.ts` is the Trigger.dev hello-world template and is still deployed as task `hello-world`. `python/hello_test.py` with `src/trigger/python-hello-test.ts` is Phase 0. Removing either changes the deployed Trigger project, so I left them.
-
-**J7. Unpinned dependencies.** `requirements.txt:1-4` has no versions. Builds are not reproducible, and `yfinance` depends on unofficial Yahoo endpoints. Pinning after a successful deploy is recommended.
+| # | Status | Note |
+|---|---|---|
+| J1 | **Done** | "Goal" / "Profit goal" / "Distance to goal" are now "Rule level +5%" / "Distance to rule level" (also the status line and two flags). The "Entry price where reward : risk is 1 : 1" line is removed. Numbers unchanged. |
+| J2 | Accepted | Accepted by Mansoor 2026-10-31. Yaqeen-only Halal rule (`python/halal_check.py`) stays as is. |
+| J3 | Accepted | Accepted by Mansoor 2026-10-31. `python/halal_cases.json` stays in this private repo. |
+| J4 | Accepted | Accepted by Mansoor 2026-10-31. AI notes keep going to free OpenRouter models (no share counts or cost). |
+| J5 | Accepted | Accepted by Mansoor 2026-10-31. `MIN_BARS = 60` and the floor tolerance, break percentage and lookback stay. |
+| J6 | **Done** | Deleted `src/trigger/example.ts`, `src/trigger/python-hello-test.ts` and `python/hello_test.py`. The tasks leave the deployed Trigger.dev project only at the next redeploy. |
+| J7 | **Open** | `requirements.txt` is unpinned. STOIC will pin versions at the next redeploy. |
 
 ## Left as is (Low or Medium, not changed)
 
