@@ -325,7 +325,7 @@ document.getElementById('boxes').addEventListener('change', e => { const k = e.t
 const lines = [];
 function level(p, color, title, style) { if (p != null) lines.push(cA.createPriceLine({price:p,color:color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title:title})); }
 function drawLevels() { if (D.floor) { level(D.floor[0],'#787B86','Floor bottom',2); level(D.floor[1],'#787B86','Floor top',2); }
-  level(D.entry,'#2962FF','Entry',1); level(D.stop,'#F23645','Stop',2); level(D.target,'#089981','Goal',2); }
+  level(D.entry,'#2962FF','Entry',1); level(D.stop,'#F23645','Stop',2); level(D.target,'#089981','Rule level +5%',2); }
 drawLevels();
 document.getElementById('lv').addEventListener('change', e => { lines.forEach(l => cA.removePriceLine(l)); lines.length = 0; if (e.target.checked) drawLevels(); });
 
