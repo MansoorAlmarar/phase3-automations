@@ -1,4 +1,4 @@
-matplotlib
-python-docx
-requests
-yfinance
+matplotlib==3.11.2
+python-docx==1.2.0
+requests==2.34.2
+yfinance==1.7.0
