@@ -24,7 +24,7 @@ OPENROUTER = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODELS = ["nvidia/nemotron-3-super-120b-a12b:free", "google/gemma-4-31b-it:free",
                   "nvidia/nemotron-3-ultra-550b-a55b:free"]
 FORBIDDEN = re.compile(r"\b(buy\w*|sell\w*|enter|hold\w*|accumulate|trim|exit|target\w*|recommend\w*|should|must|advis\w*|"
-                       r"take profit|add to)\b", re.I)
+                       r"take profit|add to|halal|haram|shari'?ah|sharia)\b", re.I)
 NUM = re.compile(r"-?\d[\d,]*\.?\d*")
 
 SYSTEM = """You write short research notes for ONE stock report. You are not an adviser.
@@ -192,6 +192,11 @@ def number_ok(x, allowed):
     return any(abs(x - a) <= max(0.011, abs(a) * 0.006) for a in allowed)
 
 
+def _as_list(x):
+    """A list from the model, or an empty one. A dict or string where a list belongs must not lose all the notes or split into letters."""
+    return x if isinstance(x, list) else []
+
+
 def _index(item, n):
     """The AI's id for a news item as a list index. None unless it is a real index: negative ids would count from the end."""
     try:
@@ -251,7 +256,7 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
 
         fin = snap.get("news") or []
         news = []
-        for it in (raw.get("news") or [])[:3]:
+        for it in _as_list(raw.get("news"))[:3]:
             idx = _index(it, len(fin))
             if idx is None:
                 continue
@@ -263,7 +268,7 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
 
         by_id = {w["id"]: w for w in web}
         ctx = []
-        for it in (raw.get("context") or [])[:3]:
+        for it in _as_list(raw.get("context"))[:3]:
             if not isinstance(it, dict):
                 continue
             w = by_id.get(str(it.get("id")))
@@ -273,7 +278,7 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
         notes["context"] = ctx
 
         risks = []
-        for r in (raw.get("risks") or [])[:4]:
+        for r in _as_list(raw.get("risks"))[:4]:
             if not isinstance(r, dict):
                 continue
             title, detail = txt("risk.title", r.get("title")), txt("risk.detail", r.get("detail"))
@@ -282,7 +287,7 @@ def make_notes(snap, plan, halal, use_web=True, log=print):
                 risks.append({"level": "medium" if lvl == "high" else lvl,  # rule flags own the HIGH level
                               "title": f"{title} (AI note)", "detail": detail})
         notes["risks"] = risks
-        notes["change_conditions"] = [c for c in (txt("change", x) for x in (raw.get("change_conditions") or [])[:3]) if c]
+        notes["change_conditions"] = [c for c in (txt("change", x) for x in _as_list(raw.get("change_conditions"))[:3]) if c]
         notes["_dropped"] = dropped
         notes["_seconds"] = round(time.time() - t0, 1)
         notes["_web_items"] = len(web)

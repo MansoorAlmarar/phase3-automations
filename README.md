@@ -32,8 +32,21 @@ A daily schedule (13:00 Dubai) scrapes the Talabat menu page of each watchlist b
 | `python/halal_check.py` | Halal gate |
 | `python/ai_notes.py` | Validated LLM notes |
 | `python/charts.py`, `docx_report.py`, `build_report.py` | Charts, Word report, orchestration |
-| `tests/python/` | 73 offline tests (fixtures only, no network) |
+| `tests/python/` | Offline tests, including the eval below (fixtures only, no network) |
+| `evals/ai_notes/` | Guardrail eval for the AI notes: 28 labelled model replies, runner, report |
 | `REVIEW.md` | Findings from a read-first review, with the fixes and open judgment calls |
+
+## Eval: do the AI-note guardrails hold?
+
+An LLM writes notes into a report that a person reads and may act on, so the code between the model and the page matters more than the model. `evals/ai_notes/` scores that code. It has 28 labelled model replies (`cases.json`): 22 bad ones and 6 good ones. Each bad reply tries one thing: advice wording ("consider buying"), an invented number, a Halal comment, an echoed prompt injection, or a broken shape (a string where a list belongs, a negative id). Each good reply must come through intact. The model call is replaced by the canned reply, so the run is offline, free and repeatable.
+
+```
+python evals/ai_notes/run.py --check
+```
+
+Result: 22 of 22 bad replies handled, 6 of 6 good replies kept (`evals/ai_notes/results/latest.md`). The first run scored 18 of 22 and found three real gaps, fixed in the same change: the Halal-comment rule was in the prompt but not enforced in code, a `news` field returned as an object threw away every note, and `change_conditions` returned as a string was split into single letters. The cases run as part of `pytest`, so CI fails if a guardrail regresses.
+
+What it does not measure: how good the model's own notes are. It tests the checks around the model, not the model.
 
 ## Run the tests
 
