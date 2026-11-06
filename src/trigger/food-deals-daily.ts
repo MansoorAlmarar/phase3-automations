@@ -153,7 +153,7 @@ async function sendTelegram(text: string): Promise<boolean> {
 
 export const foodDealsDaily = schedules.task({
   id: "food-deals-daily",
-  cron: { pattern: "0 13 * * *", timezone: "Asia/Dubai" },
+  cron: { pattern: "0 13 * * 0,3-6", timezone: "Asia/Dubai" },
   maxDuration: 300,
   retry: { maxAttempts: 1 }, // a task-level retry would re-run (and re-bill) every scrape
   onFailure: async ({ error }) => {
